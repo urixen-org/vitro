@@ -10,7 +10,7 @@
   "description": "Run a full virtual machine (QEMU/KVM) inside a Pterodactyl server: RAW disk, custom ISO, virtio-9p shared folder, optional guest SSH.",
   "features": null,
   "docker_images": {
-    "QEMU VM runtime": "ghcr.io/your-org/ptero-qemu:latest"
+    "QEMU VM runtime": "ghcr.io/urixen-org/vitro:latest"
   },
   "file_denylist": [],
   "startup": "ptero-vm run",
