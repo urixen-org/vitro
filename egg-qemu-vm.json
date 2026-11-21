@@ -1,0 +1,322 @@
+{
+  "_comment": "Pterodactyl QEMU VM egg. Set the Docker image to wherever you pushed the image.",
+  "meta": {
+    "version": "PTDL_v2",
+    "update_url": null
+  },
+  "exported_at": "2026-11-21T00:00:00+00:00",
+  "name": "QEMU VM",
+  "author": "admin@example.com",
+  "description": "Run a full virtual machine (QEMU/KVM) inside a Pterodactyl server: RAW disk, custom ISO, virtio-9p shared folder, optional guest SSH.",
+  "features": null,
+  "docker_images": {
+    "QEMU VM runtime": "ghcr.io/your-org/ptero-qemu:latest"
+  },
+  "file_denylist": [],
+  "startup": "ptero-vm run",
+  "config": {
+    "files": "{}",
+    "startup": "{\"done\": \"QEMU started\"}",
+    "logs": "{}",
+    "stop": "^C"
+  },
+  "scripts": {
+    "installation": {
+      "script": "#!/bin/ash\n# Only creates the persistent directories; the VM is installed on first start.\nmkdir -p /mnt/server/iso /mnt/server/shared /mnt/server/config\nexit 0\n",
+      "container": "alpine:3.20",
+      "entrypoint": "ash"
+    }
+  },
+  "variables": [
+    {
+      "name": "OS choice",
+      "description": "Predefined OS to download: alpine, debian, ubuntu, arch, rocky. Leave empty to use ISO_URL or an uploaded ISO. Convenience only, not an allowlist.",
+      "env_variable": "OS_CHOICE",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:20",
+      "field_type": "text"
+    },
+    {
+      "name": "Custom ISO URL",
+      "description": "Direct http(s) link to any .iso. Wins over OS_CHOICE. Only used if the ISO file does not exist yet.",
+      "env_variable": "ISO_URL",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:1000",
+      "field_type": "text"
+    },
+    {
+      "name": "ISO file path",
+      "description": "Where the ISO lives/is saved (inside /home/container). Point it at an ISO you uploaded via the File Manager.",
+      "env_variable": "ISO_PATH",
+      "default_value": "/home/container/iso/installer.iso",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|max:255",
+      "field_type": "text"
+    },
+    {
+      "name": "ISO file name",
+      "description": "Optional file name (must end in .iso); overrides ISO_PATH and stores the ISO in /home/container/iso/.",
+      "env_variable": "ISO_FILENAME",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:100",
+      "field_type": "text"
+    },
+    {
+      "name": "ISO SHA-256",
+      "description": "Optional 64-hex checksum to verify the ISO.",
+      "env_variable": "ISO_SHA256",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:64",
+      "field_type": "text"
+    },
+    {
+      "name": "VM name",
+      "description": "Name shown to QEMU (letters, digits, space . _ -).",
+      "env_variable": "VM_NAME",
+      "default_value": "Linux VM",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|max:64",
+      "field_type": "text"
+    },
+    {
+      "name": "Reserved RAM (MB)",
+      "description": "Memory kept for QEMU/container overhead. Guest RAM = server memory - this. 256+ is safer.",
+      "env_variable": "RESERVED_RAM_MB",
+      "default_value": "100",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|min:0|max:65536",
+      "field_type": "text"
+    },
+    {
+      "name": "Minimum guest RAM (MB)",
+      "description": "Refuse to start if the guest would get less than this.",
+      "env_variable": "MIN_GUEST_RAM_MB",
+      "default_value": "256",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|min:64|max:65536",
+      "field_type": "text"
+    },
+    {
+      "name": "CPU cores",
+      "description": "vCPUs for the guest (clamped to the container CPU limit).",
+      "env_variable": "CPU_CORES",
+      "default_value": "2",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|min:1|max:128",
+      "field_type": "text"
+    },
+    {
+      "name": "Disk size",
+      "description": "Size of the sparse RAW disk created on first install (e.g. 20G).",
+      "env_variable": "DISK_SIZE",
+      "default_value": "20G",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|max:8",
+      "field_type": "text"
+    },
+    {
+      "name": "Disk format",
+      "description": "Only 'raw' is supported.",
+      "env_variable": "DISK_FORMAT",
+      "default_value": "raw",
+      "user_viewable": true,
+      "user_editable": false,
+      "rules": "required|string|in:raw",
+      "field_type": "text"
+    },
+    {
+      "name": "Auto-expand disk",
+      "description": "Grow the existing disk to DISK_SIZE at boot if DISK_SIZE is larger (never shrinks).",
+      "env_variable": "AUTO_EXPAND_DISK",
+      "default_value": "false",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Disk bus",
+      "description": "virtio (Linux), nvme, or ide (Windows without virtio drivers).",
+      "env_variable": "DISK_BUS",
+      "default_value": "virtio",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|in:virtio,nvme,ide",
+      "field_type": "text"
+    },
+    {
+      "name": "Acceleration",
+      "description": "kvm, tcg (software) or auto.",
+      "env_variable": "ACCELERATION",
+      "default_value": "kvm",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|in:kvm,tcg,auto",
+      "field_type": "text"
+    },
+    {
+      "name": "Allow TCG fallback",
+      "description": "If ACCELERATION=kvm but /dev/kvm is unusable, fall back to slow TCG instead of failing.",
+      "env_variable": "ALLOW_TCG_FALLBACK",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Boot mode",
+      "description": "auto, bios or uefi. Pinned on first use; do not change after installing.",
+      "env_variable": "BOOT_MODE",
+      "default_value": "auto",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|in:auto,bios,uefi",
+      "field_type": "text"
+    },
+    {
+      "name": "Install mode",
+      "description": "auto = install until confirmed; install = force installer boot; installed = declare an existing disk as installed.",
+      "env_variable": "INSTALL_MODE",
+      "default_value": "auto",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|in:auto,install,installed",
+      "field_type": "text"
+    },
+    {
+      "name": "VNC enabled",
+      "description": "Graphical console for the installer.",
+      "env_variable": "VNC_ENABLED",
+      "default_value": "true",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "VNC port",
+      "description": "Must be an extra allocation of this server, >= 5900.",
+      "env_variable": "VNC_PORT",
+      "default_value": "5900",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|min:5900|max:65535",
+      "field_type": "text"
+    },
+    {
+      "name": "VNC password",
+      "description": "Up to 8 characters. Empty = random password printed in the console and saved to config/vnc-password.",
+      "env_variable": "VNC_PASSWORD",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:8",
+      "field_type": "text"
+    },
+    {
+      "name": "Enable SSH",
+      "description": "Forward the primary allocation port to guest TCP 22. The guest must run sshd.",
+      "env_variable": "ENABLE_SSH",
+      "default_value": "false",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "SSH user",
+      "description": "User created by the optional guest provisioning script.",
+      "env_variable": "SSH_USER",
+      "default_value": "ptero",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|max:32",
+      "field_type": "text"
+    },
+    {
+      "name": "SSH public key",
+      "description": "Public key written to shared/ptero-ssh/authorized_keys for the provisioning script.",
+      "env_variable": "SSH_PUBLIC_KEY",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "nullable|string|max:1024",
+      "field_type": "text"
+    },
+    {
+      "name": "Primary port (informational)",
+      "description": "Ignored when Wings supplies SERVER_PORT (it always does). Only a manual fallback for testing.",
+      "env_variable": "PRIMARY_PORT",
+      "default_value": "",
+      "user_viewable": false,
+      "user_editable": false,
+      "rules": "nullable|integer|min:1|max:65535",
+      "field_type": "text"
+    },
+    {
+      "name": "Shared folder tag",
+      "description": "virtio-9p mount tag.",
+      "env_variable": "SHARED_TAG",
+      "default_value": "ptero_shared",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|max:31",
+      "field_type": "text"
+    },
+    {
+      "name": "Shared folder read-only",
+      "description": "Expose the shared folder read-only to the guest.",
+      "env_variable": "SHARED_READONLY",
+      "default_value": "false",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Network model",
+      "description": "virtio-net-pci, e1000, e1000e or rtl8139.",
+      "env_variable": "NET_MODEL",
+      "default_value": "virtio-net-pci",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|in:virtio-net-pci,e1000,e1000e,rtl8139",
+      "field_type": "text"
+    },
+    {
+      "name": "Restrict guest network",
+      "description": "true = no outbound access for the guest (port forwards still work).",
+      "env_variable": "NET_RESTRICT",
+      "default_value": "false",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string|in:true,false",
+      "field_type": "text"
+    },
+    {
+      "name": "Shutdown timeout (s)",
+      "description": "Seconds to wait for ACPI shutdown before QEMU is told to quit.",
+      "env_variable": "SHUTDOWN_TIMEOUT",
+      "default_value": "60",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer|min:1|max:3600",
+      "field_type": "text"
+    }
+  ]
+}
